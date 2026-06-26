@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Archive Protocol — Okinawa Containment Simulation</title>
+<meta name="description" content="Tactical card game. Three encounters. One operative. Survive the Okinawa Containment Archive.">
+<style>
+:root {
+  --bg:       #06090b;
+  --surface:  #0c1316;
+  --surface2: #101c20;
+  --border:   #1c2e38;
+  --cyan:     #00d4e8;
+  --red:      #e83838;
+  --amber:    #f0a018;
+  --green:    #38c870;
+  --purple:   #c060f0;
+  --text:     #8ab0ba;
+  --bright:   #c0d8e0;
+  --dim:      #3a5060;
+  --font:     'Courier New', 'Lucida Console', monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 13px;
+  overflow: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(rgba(0,212,232,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,212,232,0.025) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── SCREENS ── */
+.screen { position: fixed; inset: 0; z-index: 1; display: none; }
+.screen.active { display: flex; }
+
+/* ── INTRO ── */
+#screen-intro {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  text-align: center;
+}
+.intro-eyebrow {
+  font-size: 10px; letter-spacing: .25em; color: var(--dim);
+  text-transform: uppercase; margin-bottom: 2rem;
+}
+.intro-title {
+  font-size: clamp(2.2rem, 6vw, 4rem);
+  font-weight: bold; color: var(--cyan);
+  letter-spacing: .06em; text-transform: uppercase;
+  line-height: 1.05; text-wrap: balance; margin-bottom: .4rem;
+}
+.intro-sub {
+  font-size: 11px; color: var(--dim);
+  letter-spacing: .18em; margin-bottom: 2.5rem;
+}
+.intro-rule { width: 180px; height: 1px; background: var(--border); margin: 0 auto 2.5rem; }
+.intro-lore {
+  max-width: 420px; font-size: 12px; line-height: 1.9;
+  color: var(--text); margin-bottom: 3rem;
+}
+.intro-lore em { color: var(--cyan); font-style: normal; }
+
+/* ── BUTTONS ── */
+.btn {
+  background: transparent;
+  border: 1px solid;
+  font-family: var(--font);
+  font-size: 11px; letter-spacing: .18em;
+  text-transform: uppercase;
+  padding: .65rem 2rem;
+  cursor: pointer;
+  transition: background .12s, color .12s;
+}
+.btn-cyan  { border-color: var(--cyan);  color: var(--cyan); }
+.btn-cyan:hover  { background: var(--cyan);  color: var(--bg); }
+.btn-green { border-color: var(--green); color: var(--green); }
+.btn-green:hover { background: var(--green); color: var(--bg); }
+.btn-amber { border-color: var(--amber); color: var(--amber); }
+.btn-amber:hover { background: var(--amber); color: var(--bg); }
+.btn-dim   { border-color: var(--border); color: var(--dim); }
+.btn-dim:hover   { border-color: var(--text); color: var(--bright); }
+.btn:disabled { opacity: .3; cursor: not-allowed; }
+
+/* ── GAME SCREEN ── */
+#screen-game {
+  flex-direction: column;
+  height: 100dvh;
+  overflow: hidden;
+  position: relative;
+}
+
+.game-header {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  padding: 0 1.5rem; height: 44px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0; z-index: 2;
+}
+.header-id   { font-size: 10px; letter-spacing: .22em; color: var(--dim); text-transform: uppercase; }
+.header-sec  { font-size: 11px; color: var(--cyan); letter-spacing: .08em; }
+.header-deck {
+  background: none; border: 1px solid var(--border);
+  color: var(--dim); font-family: var(--font);
+  font-size: 10px; letter-spacing: .1em;
+  padding: .3rem .7rem; cursor: pointer;
+  transition: border-color .12s, color .12s;
+}
+.header-deck:hover { border-color: var(--cyan); color: var(--cyan); }
+
+/* ── ENEMY ZONE ── */
+.enemy-zone {
+  flex-shrink: 0;
+  padding: 1.1rem 1.5rem .9rem;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(232,56,56,.045) 0%, transparent 100%);
+}
+.enemy-header { display: flex; align-items: baseline; gap: 1rem; margin-bottom: .65rem; }
+.enemy-name   { font-size: 15px; font-weight: bold; color: var(--red); letter-spacing: .06em; text-transform: uppercase; }
+.enemy-intent { font-size: 11px; color: var(--amber); }
+.enemy-intent.high { color: var(--red); }
+
+.hp-row { display: flex; align-items: center; gap: .75rem; margin-bottom: .45rem; }
+.hp-lbl { font-size: 11px; color: var(--dim); width: 68px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.hp-track { flex: 1; height: 5px; background: var(--surface2); border: 1px solid var(--border); overflow: hidden; }
+.hp-fill  { height: 100%; transition: width .35s ease, background-color .35s ease; }
+.hp-fill.p-normal  { background: var(--green); }
+.hp-fill.p-low     { background: var(--amber); }
+.hp-fill.p-crit    { background: var(--red);   }
+.hp-fill.e-normal  { background: var(--red);   }
+.hp-fill.e-low     { background: var(--amber); }
+
+.status-tags { display: flex; gap: .4rem; min-height: 1.2rem; }
+.stag {
+  font-size: 10px; letter-spacing: .04em;
+  padding: 1px 5px; border: 1px solid;
+}
+.stag.burn { color: #e07030; border-color: #60250a; }
+.stag.vuln { color: var(--purple); border-color: #4a1060; }
+
+/* ── LOG ── */
+.log-zone {
+  flex: 1; overflow-y: auto;
+  padding: .6rem 1.5rem; min-height: 50px;
+}
+.log-zone::-webkit-scrollbar { width: 3px; }
+.log-zone::-webkit-scrollbar-thumb { background: var(--border); }
+
+.log-line { font-size: 11px; line-height: 1.85; color: var(--dim); }
+.log-line::before { content: '> '; }
+.log-line.dmg    { color: var(--red);   }
+.log-line.blk    { color: var(--cyan);  }
+.log-line.heal   { color: var(--green); }
+.log-line.act    { color: var(--amber); }
+.log-line.turn   { color: var(--bright); font-weight: bold; letter-spacing: .08em; }
+.log-line.sys    { color: var(--dim); font-style: italic; }
+.log-line.burn-t { color: #e07030; }
+
+/* ── PLAYER STATUS ── */
+.player-zone {
+  flex-shrink: 0;
+  display: flex; align-items: center; gap: 1.75rem;
+  padding: .6rem 1.5rem;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.p-name { font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: var(--bright); min-width: 55px; }
+.stat-group { display: flex; flex-direction: column; gap: 2px; }
+.stat-lbl { font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+.stat-val { font-size: 14px; font-weight: bold; font-variant-numeric: tabular-nums; }
+.sv-hp.normal { color: var(--green); }
+.sv-hp.low    { color: var(--amber); }
+.sv-hp.crit   { color: var(--red);   }
+.sv-blk  { color: var(--cyan); }
+.sv-nrg  { color: var(--amber); }
+
+.hp-inline { display: flex; align-items: center; gap: .5rem; }
+.hp-track-sm { width: 120px; }
+
+.pip-row { display: flex; gap: 3px; margin-top: 1px; }
+.pip { width: 10px; height: 10px; border: 1px solid var(--amber); }
+.pip.on { background: var(--amber); }
+
+/* ── HAND ── */
+.hand-zone {
+  flex-shrink: 0;
+  display: flex; align-items: flex-start; gap: .75rem;
+  padding: 10px 1.5rem 10px;
+  background: var(--surface);
+  min-height: 185px;
+}
+.hand-cards { display: flex; gap: .75rem; flex: 1; align-items: flex-start; }
+.hand-empty { font-size: 11px; color: var(--dim); align-self: center; letter-spacing: .1em; }
+
+/* ── CARD ── */
+.card {
+  width: 128px; min-width: 128px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  cursor: pointer; position: relative;
+  user-select: none; flex-shrink: 0;
+  transition: transform .12s, border-color .12s, box-shadow .12s;
+}
+.card:hover:not(.off) {
+  transform: translateY(-7px);
+  border-color: var(--cyan);
+  box-shadow: 0 0 14px rgba(0,212,232,.18);
+}
+.card.off { opacity: .32; cursor: not-allowed; }
+
+.card-accent {
+  position: absolute; left: 0; top: 0; bottom: 0; width: 2px;
+}
+.ca-dmg  { background: var(--red);    }
+.ca-blk  { background: var(--cyan);   }
+.ca-mix  { background: var(--amber);  }
+.ca-util { background: var(--purple); }
+
+.card-cost {
+  position: absolute; top: 0; right: 0;
+  width: 22px; height: 22px;
+  background: var(--amber); color: var(--bg);
+  font-size: 12px; font-weight: bold;
+  display: flex; align-items: center; justify-content: center;
+}
+.card-cost.zero { background: var(--dim); color: var(--bright); }
+
+.card-name {
+  padding: .55rem .45rem .45rem;
+  padding-right: 26px;
+  font-size: 11px; font-weight: bold;
+  color: var(--bright); line-height: 1.3;
+  min-height: 48px;
+}
+.card-rule { height: 1px; background: var(--border); margin: 0 .45rem; }
+.card-stats { padding: .35rem .45rem; display: flex; flex-direction: column; gap: 2px; }
+.cs-row { display: flex; justify-content: space-between; font-size: 10px; }
+.cs-lbl { color: var(--dim); }
+.cs-v-dmg  { color: var(--red);    font-variant-numeric: tabular-nums; }
+.cs-v-blk  { color: var(--cyan);   font-variant-numeric: tabular-nums; }
+.cs-v-burn { color: #e07030;        font-variant-numeric: tabular-nums; }
+.cs-v-vuln { color: var(--purple); font-variant-numeric: tabular-nums; }
+
+.btn-endturn {
+  align-self: center;
+  background: none; border: 1px solid var(--border);
+  color: var(--dim); font-family: var(--font);
+  font-size: 10px; letter-spacing: .15em;
+  text-transform: uppercase;
+  padding: .5rem .9rem; cursor: pointer;
+  transition: border-color .12s, color .12s;
+  white-space: nowrap;
+}
+.btn-endturn:hover:not(:disabled) { border-color: var(--bright); color: var(--bright); }
+.btn-endturn:disabled { opacity: .25; cursor: not-allowed; }
+
+/* ── MODAL ── */
+.modal-bg {
+  position: fixed; inset: 0;
+  background: rgba(6,9,11,.87);
+  z-index: 50;
+  display: flex; align-items: center; justify-content: center;
+  padding: 1rem;
+}
+.modal-bg.hidden { display: none; }
+.modal-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 1.75rem 2rem;
+  max-width: 580px; width: 100%;
+  max-height: 90vh; overflow-y: auto;
+}
+.modal-eyebrow { font-size: 10px; letter-spacing: .22em; color: var(--dim); text-transform: uppercase; margin-bottom: .4rem; }
+.modal-title   { font-size: 17px; font-weight: bold; color: var(--amber); letter-spacing: .06em; text-transform: uppercase; margin-bottom: .4rem; }
+.modal-body    { font-size: 12px; color: var(--text); line-height: 1.8; margin-bottom: 1.25rem; }
+.modal-cards   { display: flex; gap: .75rem; justify-content: center; flex-wrap: wrap; margin-bottom: 1.5rem; }
+.modal-actions { display: flex; gap: .75rem; justify-content: center; }
+
+.m-card {
+  width: 148px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  cursor: pointer; position: relative;
+  transition: border-color .12s, box-shadow .12s;
+}
+.m-card:hover { border-color: var(--amber); box-shadow: 0 0 14px rgba(240,160,24,.2); }
+
+.between-opts { display: flex; gap: .75rem; margin-bottom: 1.25rem; }
+.b-opt {
+  flex: 1; border: 1px solid var(--border);
+  padding: 1.25rem; cursor: pointer;
+  background: var(--surface2); text-align: center;
+  transition: border-color .12s, box-shadow .12s;
+}
+.b-opt:hover { border-color: var(--cyan); box-shadow: 0 0 12px rgba(0,212,232,.1); }
+.b-opt-icon  { font-size: 20px; margin-bottom: .4rem; font-style: normal; color: var(--dim); }
+.b-opt-title { font-size: 12px; font-weight: bold; letter-spacing: .1em; text-transform: uppercase; margin-bottom: .2rem; }
+.b-opt-desc  { font-size: 10px; color: var(--dim); }
+.b-opt.rest  .b-opt-title { color: var(--green); }
+.b-opt.scav  .b-opt-title { color: var(--amber); }
+
+/* ── DECK OVERLAY ── */
+#deck-overlay {
+  position: fixed; inset: 0;
+  background: rgba(6,9,11,.92);
+  z-index: 80;
+  display: flex; align-items: center; justify-content: center;
+  padding: 1rem;
+}
+#deck-overlay.hidden { display: none; }
+.deck-panel {
+  background: var(--surface); border: 1px solid var(--border);
+  padding: 1.5rem; max-width: 680px; width: 100%;
+  max-height: 88vh; overflow-y: auto;
+}
+.deck-panel-hdr {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 1.25rem;
+}
+.deck-panel-title { font-size: 13px; color: var(--bright); letter-spacing: .14em; text-transform: uppercase; }
+.deck-sec-title {
+  font-size: 10px; letter-spacing: .2em; color: var(--dim);
+  text-transform: uppercase; margin-bottom: .5rem;
+  padding-bottom: .4rem; border-bottom: 1px solid var(--border);
+}
+.deck-mini-row { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: 1.25rem; }
+.deck-mini {
+  background: var(--surface2); border: 1px solid var(--border);
+  padding: .35rem .55rem; font-size: 10px;
+}
+.dm-name { color: var(--bright); }
+.dm-stat { color: var(--dim); }
+
+/* ── END SCREEN ── */
+#screen-end {
+  flex-direction: column; align-items: center;
+  justify-content: center; text-align: center; padding: 2rem;
+}
+.end-eyebrow { font-size: 10px; letter-spacing: .25em; color: var(--dim); text-transform: uppercase; margin-bottom: 1rem; }
+.end-result  { font-size: clamp(1.6rem, 5vw, 2.8rem); font-weight: bold; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 1rem; }
+.end-result.victory { color: var(--cyan); }
+.end-result.defeat  { color: var(--red);  }
+.end-msg { font-size: 13px; color: var(--text); max-width: 400px; line-height: 1.9; margin-bottom: 3rem; }
+</style>
+</head>
+<body>
+
+<!-- ── INTRO ── -->
+<div id="screen-intro" class="screen active">
+  <p class="intro-eyebrow">Classified Access &mdash; Operative Jinhua_Ma</p>
+  <h1 class="intro-title">Archive<br>Protocol</h1>
+  <p class="intro-sub">Okinawa Containment Simulation</p>
+  <div class="intro-rule"></div>
+  <p class="intro-lore">
+    Three sectors. Three threats between you and the truth.<br>
+    Operative <em>Shade</em> draws from a deck of tactical maneuvers.<br>
+    Play cards. Manage energy. Survive.
+  </p>
+  <button class="btn btn-cyan" id="btn-start">Initiate Simulation</button>
+</div>
+
+<!-- ── GAME ── -->
+<div id="screen-game" class="screen">
+
+  <div class="game-header">
+    <span class="header-id">Okinawa Containment Archive</span>
+    <span class="header-sec" id="hdr-sector">Sector 1 / 3</span>
+    <button class="header-deck" id="btn-deck">DECK [0]</button>
+  </div>
+
+  <div class="enemy-zone">
+    <div class="enemy-header">
+      <span class="enemy-name" id="e-name">—</span>
+      <span class="enemy-intent" id="e-intent">—</span>
+    </div>
+    <div class="hp-row">
+      <span class="hp-lbl" id="e-hp-lbl">HP 0/0</span>
+      <div class="hp-track"><div class="hp-fill e-normal" id="e-hp-fill" style="width:100%"></div></div>
+    </div>
+    <div class="status-tags" id="e-status"></div>
+  </div>
+
+  <div class="log-zone" id="log-zone"></div>
+
+  <div class="player-zone">
+    <span class="p-name">Shade</span>
+    <div class="stat-group">
+      <span class="stat-lbl">HP</span>
+      <div class="hp-inline">
+        <span class="stat-val sv-hp normal" id="p-hp-val">50/50</span>
+        <div class="hp-track hp-track-sm"><div class="hp-fill p-normal" id="p-hp-fill" style="width:100%"></div></div>
+      </div>
+    </div>
+    <div class="stat-group">
+      <span class="stat-lbl">Block</span>
+      <span class="stat-val sv-blk" id="p-block">0</span>
+    </div>
+    <div class="stat-group">
+      <span class="stat-lbl">Energy</span>
+      <div class="pip-row" id="pip-row"></div>
+    </div>
+  </div>
+
+  <div class="hand-zone">
+    <div class="hand-cards" id="hand-cards"></div>
+    <button class="btn-endturn" id="btn-endturn">End Turn</button>
+  </div>
+
+</div>
+
+<!-- ── MODAL ── -->
+<div id="modal" class="modal-bg hidden">
+  <div class="modal-box" id="modal-box"></div>
+</div>
+
+<!-- ── DECK OVERLAY ── -->
+<div id="deck-overlay" class="hidden">
+  <div class="deck-panel">
+    <div class="deck-panel-hdr">
+      <span class="deck-panel-title">Deck Inspector</span>
+      <button class="header-deck" id="btn-deck-close">Close</button>
+    </div>
+    <div id="deck-sections"></div>
+  </div>
+</div>
+
+<!-- ── END ── -->
+<div id="screen-end" class="screen">
+  <p class="end-eyebrow" id="end-eye">Simulation Complete</p>
+  <h2 class="end-result" id="end-result">—</h2>
+  <p class="end-msg" id="end-msg"></p>
+  <button class="btn btn-cyan" id="btn-restart">Run Again</button>
+</div>
+
+<script>
+// ════════════════════════════════════════════
+// DATA
+// ════════════════════════════════════════════
+const STARTERS = () => [
+  { name:'CQB Strike',         e:1, d:8,  b:0,  burn:0, vuln:0 },
+  { name:'CQB Strike',         e:1, d:8,  b:0,  burn:0, vuln:0 },
+  { name:'Suppressive Fire',   e:2, d:14, b:0,  burn:0, vuln:0 },
+  { name:'Stealth Protocol',   e:1, d:0,  b:10, burn:0, vuln:0 },
+  { name:'Temporal Resonance', e:2, d:5,  b:5,  burn:0, vuln:0 },
+];
+
+const POOL = [
+  { name:'Frag Grenade',      e:2, d:18, b:0,  burn:0, vuln:0 },
+  { name:'Neural Disruptor',  e:2, d:10, b:5,  burn:0, vuln:0 },
+  { name:'Ghost Step',        e:1, d:0,  b:15, burn:0, vuln:0 },
+  { name:'Overcharge',        e:3, d:25, b:0,  burn:0, vuln:0 },
+  { name:'Reactive Armor',    e:2, d:0,  b:12, burn:0, vuln:0 },
+  { name:'Tactical Reload',   e:0, d:4,  b:4,  burn:0, vuln:0 },
+  { name:'Cipher Blade',      e:1, d:11, b:0,  burn:0, vuln:0 },
+  { name:'EMP Burst',         e:2, d:12, b:6,  burn:0, vuln:0 },
+  { name:'Dead Drop',         e:1, d:0,  b:8,  burn:0, vuln:0 },
+  { name:'Kinetic Surge',     e:3, d:20, b:8,  burn:0, vuln:0 },
+  { name:'Incendiary Round',  e:2, d:6,  b:0,  burn:4, vuln:0 },
+  { name:'Marked Target',     e:1, d:4,  b:0,  burn:0, vuln:2 },
+  { name:'Napalm Protocol',   e:3, d:10, b:0,  burn:6, vuln:0 },
+  { name:'Exploit Weakness',  e:2, d:0,  b:0,  burn:0, vuln:3 },
+];
+
+const ENCOUNTERS = [
+  { name:'Awakened Cultist',      hp:30, mn:4,  mx:9  },
+  { name:'Archive Sentinel',      hp:45, mn:6,  mx:13 },
+  { name:'Okinawa Core Fragment', hp:65, mn:8,  mx:18 },
+];
+
+// ════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════
+let G, LOG;
+
+function newGame() {
+  LOG = [];
+  const deck = shuffle(STARTERS());
+  G = {
+    phase: 'combat',
+    ei: 0, turn: 1,
+    player: { maxHp:50, hp:50, block:0, energy:3, deck, discard:[] },
+    enemy: makeEnemy(0),
+    hand: [],
+  };
+  G.enemy.intent = rollIntent(G.enemy);
+  G.hand = draw(G.player, 3);
+  addLog('turn', `— SECTOR 1 / TURN 1 —`);
+}
+
+function makeEnemy(i) {
+  const d = ENCOUNTERS[i];
+  return { name:d.name, maxHp:d.hp, hp:d.hp, mn:d.mn, mx:d.mx, intent:0, burn:0, vuln:0 };
+}
+
+function rollIntent(en) {
+  return Math.floor(Math.random() * (en.mx - en.mn + 1)) + en.mn;
+}
+
+// ════════════════════════════════════════════
+// DECK
+// ════════════════════════════════════════════
+function shuffle(a) {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+
+function draw(p, n) {
+  const h = [];
+  for (let i = 0; i < n; i++) {
+    if (!p.deck.length) {
+      if (!p.discard.length) break;
+      p.deck = shuffle([...p.discard]);
+      p.discard = [];
+      addLog('sys', 'Discard reshuffled into deck.');
+    }
+    h.push(p.deck.pop());
+  }
+  return h;
+}
+
+// ════════════════════════════════════════════
+// LOG
+// ════════════════════════════════════════════
+function addLog(type, msg) {
+  LOG.push({ type, msg });
+  const el = document.getElementById('log-zone');
+  if (!el) return;
+  const d = document.createElement('div');
+  d.className = 'log-line ' + type;
+  d.textContent = msg;
+  el.appendChild(d);
+  el.scrollTop = el.scrollHeight;
+}
+
+// ════════════════════════════════════════════
+// ACTIONS
+// ════════════════════════════════════════════
+function playCard(i) {
+  if (G.phase !== 'combat') return;
+  const c = G.hand[i];
+  if (!c || G.player.energy < c.e) { addLog('sys', 'Not enough energy.'); return; }
+
+  G.player.energy -= c.e;
+  G.player.block  += c.b;
+
+  let dmg = c.d, vb = false;
+  if (dmg > 0 && G.enemy.vuln > 0) { dmg = Math.floor(dmg * 1.5); vb = true; }
+
+  G.enemy.hp   -= dmg;
+  G.enemy.burn += c.burn;
+  G.enemy.vuln += c.vuln;
+
+  addLog('act', `Played ${c.name}.`);
+  if (dmg > 0) addLog('dmg', `Dealt ${dmg} damage to ${G.enemy.name}.${vb ? ' (+50% Vulnerable)' : ''}`);
+  if (c.b    > 0) addLog('blk',    `Gained ${c.b} block.`);
+  if (c.burn > 0) addLog('dmg',    `Applied Burn ${c.burn} to ${G.enemy.name}.`);
+  if (c.vuln > 0) addLog('blk',    `Applied Vulnerable ${c.vuln} to ${G.enemy.name}.`);
+
+  G.player.discard.push(...G.hand.splice(i, 1));
+
+  if (G.enemy.hp <= 0) { G.enemy.hp = 0; render(); setTimeout(enemyDown, 250); return; }
+  render();
+}
+
+function endTurn() {
+  if (G.phase !== 'combat') return;
+  G.player.discard.push(...G.hand.splice(0));
+
+  addLog('act', `— ${G.enemy.name}'s turn —`);
+
+  // burn tick
+  if (G.enemy.burn > 0) {
+    addLog('burn-t', `${G.enemy.name} takes ${G.enemy.burn} burn damage.`);
+    G.enemy.hp -= G.enemy.burn;
+    G.enemy.burn = Math.max(0, G.enemy.burn - 1);
+    if (G.enemy.hp <= 0) { G.enemy.hp = 0; render(); setTimeout(enemyDown, 250); return; }
+  }
+
+  // vulnerable tick
+  if (G.enemy.vuln > 0) {
+    G.enemy.vuln--;
+    if (G.enemy.vuln === 0) addLog('sys', `${G.enemy.name} is no longer Vulnerable.`);
+  }
+
+  // enemy attack
+  const dmg = G.enemy.intent;
+  if (G.player.block >= dmg) {
+    G.player.block -= dmg;
+    addLog('blk', `${G.enemy.name} strikes for ${dmg} — absorbed by block.`);
+  } else {
+    const actual = dmg - G.player.block;
+    G.player.hp   -= actual;
+    G.player.block = 0;
+    addLog('dmg', `${G.enemy.name} deals ${actual} damage.`);
+  }
+
+  if (G.player.hp <= 0) { G.player.hp = 0; render(); setTimeout(doGameOver, 350); return; }
+
+  G.player.energy = 3;
+  G.player.block  = 0;
+  G.enemy.intent  = rollIntent(G.enemy);
+  G.turn++;
+  G.hand = draw(G.player, 3);
+  addLog('turn', `— TURN ${G.turn} —`);
+  render();
+}
+
+function enemyDown() {
+  addLog('heal', `${G.enemy.name} eliminated.`);
+  G.player.discard.push(...G.hand.splice(0));
+  G.player.energy = 3;
+  G.player.block  = 0;
+
+  if (G.ei >= ENCOUNTERS.length - 1) {
+    G.phase = 'victory'; render(); setTimeout(doVictory, 500);
+  } else {
+    G.phase = 'reward'; render(); setTimeout(showReward, 400);
+  }
+}
+
+// ════════════════════════════════════════════
+// REWARD
+// ════════════════════════════════════════════
+function showReward() {
+  const picks = shuffle([...POOL]).slice(0, 3);
+  window._rp = picks;
+  document.getElementById('modal-box').innerHTML =
+    `<p class="modal-eyebrow">Data Fragment Recovered</p>
+     <h2 class="modal-title">Choose a Card</h2>
+     <p class="modal-body">Add one card to your deck, or skip.</p>
+     <div class="modal-cards">${picks.map((c,i) => mCard(c,`_pick(${i})`)).join('')}</div>
+     <div class="modal-actions"><button class="btn btn-dim" onclick="_skip()">Skip</button></div>`;
+  showModal();
+}
+
+window._pick = function(i) {
+  const c = window._rp[i];
+  G.player.discard.push({...c});
+  addLog('heal', `${c.name} added to deck.`);
+  hideModal();
+  showBetween();
+};
+window._skip = function() {
+  addLog('sys', 'Card reward skipped.');
+  hideModal();
+  showBetween();
+};
+
+// ════════════════════════════════════════════
+// BETWEEN
+// ════════════════════════════════════════════
+function showBetween() {
+  document.getElementById('modal-box').innerHTML =
+    `<p class="modal-eyebrow">Between Sectors</p>
+     <h2 class="modal-title">Choose Your Action</h2>
+     <p class="modal-body">Current HP: ${G.player.hp}/${G.player.maxHp}</p>
+     <div class="between-opts">
+       <div class="b-opt rest" onclick="_between('rest')">
+         <div class="b-opt-icon">[+]</div>
+         <div class="b-opt-title">Rest</div>
+         <div class="b-opt-desc">Recover 15 HP</div>
+       </div>
+       <div class="b-opt scav" onclick="_between('scav')">
+         <div class="b-opt-icon">[#]</div>
+         <div class="b-opt-title">Scavenge</div>
+         <div class="b-opt-desc">Add a card to your deck</div>
+       </div>
+     </div>`;
+  showModal();
+}
+
+window._between = function(choice) {
+  if (choice === 'rest') {
+    const h = Math.min(15, G.player.maxHp - G.player.hp);
+    G.player.hp += h;
+    addLog('heal', `Rested. Recovered ${h} HP. (${G.player.hp}/${G.player.maxHp})`);
+    hideModal();
+    nextEncounter();
+  } else {
+    const picks = shuffle([...POOL]).slice(0, 3);
+    window._sp = picks;
+    document.getElementById('modal-box').innerHTML =
+      `<p class="modal-eyebrow">Scavenging</p>
+       <h2 class="modal-title">Choose a Card</h2>
+       <p class="modal-body">Select one card to add to your deck.</p>
+       <div class="modal-cards">${picks.map((c,i) => mCard(c,`_spick(${i})`)).join('')}</div>`;
+    // modal stays open
+  }
+};
+window._spick = function(i) {
+  const c = window._sp[i];
+  G.player.discard.push({...c});
+  addLog('heal', `${c.name} added to deck.`);
+  hideModal();
+  nextEncounter();
+};
+
+function nextEncounter() {
+  G.ei++;
+  G.enemy = makeEnemy(G.ei);
+  G.enemy.intent = rollIntent(G.enemy);
+  G.turn  = 1;
+  G.phase = 'combat';
+  G.hand  = draw(G.player, 3);
+  LOG.length = 0;
+  document.getElementById('log-zone').innerHTML = '';
+  addLog('turn', `— SECTOR ${G.ei+1} / TURN 1 —`);
+  render();
+}
+
+// ════════════════════════════════════════════
+// END STATES
+// ════════════════════════════════════════════
+function doGameOver() {
+  showScreen('screen-end');
+  document.getElementById('end-eye').textContent    = 'Archive Connection Lost';
+  document.getElementById('end-result').textContent = 'Operative Down';
+  document.getElementById('end-result').className   = 'end-result defeat';
+  document.getElementById('end-msg').textContent    = 'The simulation failed. The Archive endures.';
+}
+function doVictory() {
+  showScreen('screen-end');
+  document.getElementById('end-eye').textContent    = 'All Sectors Cleared';
+  document.getElementById('end-result').textContent = 'Archive Breached';
+  document.getElementById('end-result').className   = 'end-result victory';
+  document.getElementById('end-msg').textContent    = 'The Archive falls silent. You are one step closer to the truth, Jinhua.';
+}
+
+// ════════════════════════════════════════════
+// RENDER
+// ════════════════════════════════════════════
+function render() {
+  const p = G.player, en = G.enemy;
+  const total = p.deck.length + p.discard.length + G.hand.length;
+
+  // header
+  document.getElementById('hdr-sector').textContent =
+    `Sector ${G.ei+1} / ${ENCOUNTERS.length}  —  Turn ${G.turn}`;
+  document.getElementById('btn-deck').textContent = `DECK [${total}]`;
+
+  // enemy
+  document.getElementById('e-name').textContent = en.name;
+  const iEl = document.getElementById('e-intent');
+  iEl.textContent = `INTENT: strike for ${en.intent} dmg`;
+  iEl.className = 'enemy-intent' + (en.intent >= 10 ? ' high' : '');
+
+  document.getElementById('e-hp-lbl').textContent = `HP ${en.hp}/${en.maxHp}`;
+  const ePct = Math.max(0, en.hp / en.maxHp * 100);
+  const eFill = document.getElementById('e-hp-fill');
+  eFill.style.width = ePct + '%';
+  eFill.className = 'hp-fill ' + (ePct < 30 ? 'e-low' : 'e-normal');
+
+  const stEl = document.getElementById('e-status');
+  stEl.innerHTML = '';
+  if (en.burn > 0) stEl.insertAdjacentHTML('beforeend', `<span class="stag burn">BURN ${en.burn}</span>`);
+  if (en.vuln > 0) stEl.insertAdjacentHTML('beforeend', `<span class="stag vuln">VULNERABLE ${en.vuln}</span>`);
+
+  // player hp
+  const hPct = Math.max(0, p.hp / p.maxHp * 100);
+  document.getElementById('p-hp-val').textContent = `${p.hp}/${p.maxHp}`;
+  document.getElementById('p-hp-val').className =
+    'stat-val sv-hp ' + (hPct > 50 ? 'normal' : hPct > 25 ? 'low' : 'crit');
+  const pFill = document.getElementById('p-hp-fill');
+  pFill.style.width = hPct + '%';
+  pFill.className = 'hp-fill ' + (hPct > 50 ? 'p-normal' : hPct > 25 ? 'p-low' : 'p-crit');
+
+  // block
+  document.getElementById('p-block').textContent = p.block;
+
+  // pips
+  const pipRow = document.getElementById('pip-row');
+  pipRow.innerHTML = '';
+  for (let i = 0; i < 3; i++) {
+    const pip = document.createElement('div');
+    pip.className = 'pip' + (i < p.energy ? ' on' : '');
+    pipRow.appendChild(pip);
+  }
+
+  // hand
+  const hEl = document.getElementById('hand-cards');
+  if (!G.hand.length) {
+    hEl.innerHTML = '<span class="hand-empty">— no cards —</span>';
+  } else {
+    hEl.innerHTML = G.hand.map((c,i) =>
+      cardHTML(c, `playCard(${i})`, p.energy < c.e, false)
+    ).join('');
+  }
+
+  document.getElementById('btn-endturn').disabled = G.phase !== 'combat';
+}
+
+function cardHTML(c, onclick, disabled, modal) {
+  const ac = c.d > 0 && c.b > 0 ? 'ca-mix' : c.d > 0 ? 'ca-dmg' : c.b > 0 ? 'ca-blk' : 'ca-util';
+  const cls = (modal ? 'm-card' : 'card') + (disabled ? ' off' : '');
+  const stats = [
+    c.d    ? `<div class="cs-row"><span class="cs-lbl">DMG</span><span class="cs-v-dmg">${c.d}</span></div>` : '',
+    c.b    ? `<div class="cs-row"><span class="cs-lbl">BLK</span><span class="cs-v-blk">${c.b}</span></div>` : '',
+    c.burn ? `<div class="cs-row"><span class="cs-lbl">BURN</span><span class="cs-v-burn">${c.burn}</span></div>` : '',
+    c.vuln ? `<div class="cs-row"><span class="cs-lbl">VULN</span><span class="cs-v-vuln">${c.vuln}</span></div>` : '',
+  ].join('');
+  return `<div class="${cls}" onclick="${disabled ? '' : onclick}">
+    <div class="card-accent ${ac}"></div>
+    <div class="card-cost${c.e === 0 ? ' zero' : ''}">${c.e}</div>
+    <div class="card-name">${c.name}</div>
+    <div class="card-rule"></div>
+    <div class="card-stats">${stats}</div>
+  </div>`;
+}
+
+function mCard(c, fn) { return cardHTML(c, fn, false, true); }
+
+// ════════════════════════════════════════════
+// DECK OVERLAY
+// ════════════════════════════════════════════
+function showDeckOverlay() {
+  const p = G.player;
+  const secs = [
+    { title:`Deck (${p.deck.length})`,       cards: p.deck    },
+    { title:`Hand (${G.hand.length})`,        cards: G.hand    },
+    { title:`Discard (${p.discard.length})`,  cards: p.discard },
+  ];
+  document.getElementById('deck-sections').innerHTML = secs.map(s => `
+    <div class="deck-sec-title">${s.title}</div>
+    <div class="deck-mini-row">${
+      s.cards.length
+        ? s.cards.map(c => `<div class="deck-mini"><div class="dm-name">${c.name}</div><div class="dm-stat">${c.e}E${c.d?' '+c.d+'dmg':''}${c.b?' '+c.b+'blk':''}</div></div>`).join('')
+        : '<span style="color:var(--dim);font-size:10px">Empty</span>'
+    }</div>
+  `).join('');
+  document.getElementById('deck-overlay').classList.remove('hidden');
+}
+
+// ════════════════════════════════════════════
+// MODAL HELPERS
+// ════════════════════════════════════════════
+function showModal() { document.getElementById('modal').classList.remove('hidden'); }
+function hideModal() { document.getElementById('modal').classList.add('hidden'); }
+
+// ════════════════════════════════════════════
+// SCREEN SWITCH
+// ════════════════════════════════════════════
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// ════════════════════════════════════════════
+// EVENTS
+// ════════════════════════════════════════════
+document.getElementById('btn-start').addEventListener('click', () => {
+  newGame();
+  showScreen('screen-game');
+  render();
+});
+
+document.getElementById('btn-endturn').addEventListener('click', endTurn);
+
+document.getElementById('btn-deck').addEventListener('click', showDeckOverlay);
+document.getElementById('btn-deck-close').addEventListener('click', () => {
+  document.getElementById('deck-overlay').classList.add('hidden');
+});
+
+document.getElementById('btn-restart').addEventListener('click', () => {
+  newGame();
+  showScreen('screen-game');
+  render();
+});
+
+window.playCard = playCard;
+</script>
+</body>
+</html>
